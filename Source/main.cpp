@@ -25,6 +25,7 @@ const char *palette_strings [16] = { "0", "1", "2", "3",
                                      "C", "D", "E", "F"
 };
 
+
 /*
  * Main menu bar (top)
  */
@@ -72,7 +73,20 @@ void palette_bar (void)
 
     for (uint32_t i = 0; i < 16; i++)
     {
-        ImGui::Button (palette_strings [i], ImVec2 (button_width, button_height));
+        if (ImGui::Button (palette_strings [i], ImVec2 (button_width, button_height)))
+        {
+            printf ("Colour %d selected.\n", i);
+
+            if (SDL_GetMouseState (NULL, NULL) & SDL_BUTTON (SDL_BUTTON_RIGHT))
+            {
+                printf ("Right mouse button was used.\n");
+            }
+            else
+            {
+                printf ("Left mouse button was used.\n");
+            }
+        }
+
         if (i < 15)
         {
             ImGui::SameLine ();
@@ -97,6 +111,15 @@ int main_gui_loop (void)
         /* Handle input */
         while (SDL_PollEvent (&event))
         {
+            /* Allow ImGui buttons to be clicked with the right mouse button */
+            if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP)
+            {
+                if (event.button.button == SDL_BUTTON_RIGHT)
+                {
+                    event.button.button = SDL_BUTTON_LEFT;
+                }
+            }
+
             ImGui_ImplSDL2_ProcessEvent (&event);
 
             if (event.type == SDL_QUIT)
