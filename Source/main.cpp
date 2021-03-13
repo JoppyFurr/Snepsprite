@@ -12,12 +12,14 @@
 #define BORDER_SIZE 8
 
 /* Global state */
+bool running = true;
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
 int host_width;
 int host_height;
 
-uint8_t palette [16] = { 0 };
+uint8_t active_palette_index = 0;
+uint8_t palette [16] = { 0x08, 0x04, 0x00, 0x3f };
 
 const char *palette_strings [16] = { "0", "1", "2", "3",
                                      "4", "5", "6", "7",
@@ -35,8 +37,9 @@ void menu_bar (void)
     {
         if (ImGui::BeginMenu ("File"))
         {
-            if (ImGui::MenuItem ("New"))
+            if (ImGui::MenuItem ("Quit"))
             {
+                running = false;
             }
 
             ImGui::EndMenu ();
@@ -44,6 +47,27 @@ void menu_bar (void)
 
         ImGui::EndMainMenuBar ();
     }
+}
+
+
+/*
+ * Convert a 6-bit SMS colour into an ImColor.
+ */
+ImVec4 sms_to_imgui_colour (uint8_t colour, uint8_t hilight)
+{
+    uint16_t r = (0xff / 3) * ((colour & 0x03) >> 0);
+    uint16_t g = (0xff / 3) * ((colour & 0x0c) >> 2);
+    uint16_t b = (0xff / 3) * ((colour & 0x33) >> 4);
+
+    if (hilight)
+    {
+        float scale = hilight * 0.1;
+        r = (r * (1.0 - scale) + (255.0 * scale));
+        g = (g * (1.0 - scale) + (255.0 * scale));
+        b = (b * (1.0 - scale) + (255.0 * scale));
+    }
+
+    return (ImVec4) ImColor (r, g, b);
 }
 
 
@@ -73,19 +97,21 @@ void palette_bar (void)
 
     for (uint32_t i = 0; i < 16; i++)
     {
+        ImGui::PushStyleColor (ImGuiCol_Button,        sms_to_imgui_colour (palette [i], 0));
+        ImGui::PushStyleColor (ImGuiCol_ButtonHovered, sms_to_imgui_colour (palette [i], 1));
+        ImGui::PushStyleColor (ImGuiCol_ButtonActive,  sms_to_imgui_colour (palette [i], 2));
+
         if (ImGui::Button (palette_strings [i], ImVec2 (button_width, button_height)))
         {
-            printf ("Colour %d selected.\n", i);
+            active_palette_index = i;
 
             if (SDL_GetMouseState (NULL, NULL) & SDL_BUTTON (SDL_BUTTON_RIGHT))
             {
-                printf ("Right mouse button was used.\n");
-            }
-            else
-            {
-                printf ("Left mouse button was used.\n");
+                /* Palette chooser */
             }
         }
+
+        ImGui::PopStyleColor (3);
 
         if (i < 15)
         {
@@ -101,8 +127,6 @@ void palette_bar (void)
  */
 int main_gui_loop (void)
 {
-    bool running = true;
-
     while (running)
     {
         SDL_GetWindowSize (window, &host_width, &host_height);
