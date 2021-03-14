@@ -67,6 +67,32 @@ ImVec4 sms_to_imgui_colour (uint8_t colour, uint8_t hilight)
 
 
 /*
+ * Export palette to stdout.
+ */
+void export_palette (void)
+{
+    printf ("const uint8_t palette [16] = { ");
+    for (uint32_t i = 0; i < 16; i++)
+    {
+        printf ("0x%02x", palette [i]);
+
+        if (i == 15)
+        {
+            printf ("\n};\n");
+        }
+        else if (i == 7)
+        {
+            printf (",\n                               ");
+        }
+        else
+        {
+            printf (", ");
+        }
+    }
+}
+
+
+/*
  * Main menu bar (top)
  */
 void menu_bar (void)
@@ -75,6 +101,13 @@ void menu_bar (void)
     {
         if (ImGui::BeginMenu ("File"))
         {
+            if (ImGui::MenuItem ("Export Palette"))
+            {
+                export_palette ();
+            }
+
+            ImGui::Separator ();
+
             if (ImGui::MenuItem ("Quit"))
             {
                 running = false;
