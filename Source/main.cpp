@@ -29,27 +29,20 @@ const char *palette_strings [16] = { "0", "1", "2", "3",
                                      "C", "D", "E", "F"
 };
 
+/* Gui variables */
+uint32_t palette_bar_height = 0;
 
-/*
- * Main menu bar (top)
- */
-void menu_bar (void)
-{
-    if (ImGui::BeginMainMenuBar ())
-    {
-        if (ImGui::BeginMenu ("File"))
-        {
-            if (ImGui::MenuItem ("Quit"))
-            {
-                running = false;
-            }
-
-            ImGui::EndMenu ();
-        }
-
-        ImGui::EndMainMenuBar ();
-    }
-}
+/* 8 × 8 pixel tile */
+uint8_t tile [64] = { 0 };
+const char *tile_strings [64] = { "##00", "##01", "##02", "##03", "##04", "##05", "##06", "##07",
+                                  "##08", "##09", "##0a", "##0b", "##0c", "##0d", "##0e", "##0f",
+                                  "##10", "##11", "##12", "##13", "##14", "##15", "##16", "##17",
+                                  "##18", "##19", "##1a", "##1b", "##1c", "##1d", "##1e", "##1f",
+                                  "##20", "##21", "##22", "##23", "##24", "##25", "##26", "##27",
+                                  "##28", "##29", "##2a", "##2b", "##2c", "##2d", "##2e", "##2f",
+                                  "##30", "##31", "##32", "##33", "##34", "##35", "##36", "##37",
+                                  "##38", "##39", "##3a", "##3b", "##3c", "##3d", "##3e", "##3f"
+};
 
 
 /*
@@ -74,6 +67,74 @@ ImVec4 sms_to_imgui_colour (uint8_t colour, uint8_t hilight)
 
 
 /*
+ * Main menu bar (top)
+ */
+void menu_bar (void)
+{
+    if (ImGui::BeginMainMenuBar ())
+    {
+        if (ImGui::BeginMenu ("File"))
+        {
+            if (ImGui::MenuItem ("Quit"))
+            {
+                running = false;
+            }
+
+            ImGui::EndMenu ();
+        }
+
+        ImGui::EndMainMenuBar ();
+    }
+}
+
+
+/*
+ * Tile editing area.
+ */
+void editing_area (void)
+{
+    uint32_t free_height = host_height - palette_bar_height;
+    uint32_t pixel_size = ((free_height * 0.8) - (2 * BORDER_SIZE)) / 8;
+    uint32_t window_size = (8 * pixel_size) + (2 * BORDER_SIZE);
+
+    ImGui::SetNextWindowPos (ImVec2 ((host_width - window_size) / 2, (free_height - window_size) / 2));
+    ImGui::SetNextWindowSize (ImVec2 (window_size, window_size));
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                    ImGuiWindowFlags_NoMove     | ImGuiWindowFlags_NoScrollbar;
+
+
+    ImGui::Begin ("editing_area", NULL, window_flags);
+
+    ImGui::PushStyleVar (ImGuiStyleVar_FrameRounding, 0.0f);
+    ImGui::PushStyleVar (ImGuiStyleVar_ItemSpacing, ImVec2 (0.0f, 0.0f));
+
+    for (uint32_t i = 0; i < 64; i++)
+    {
+        ImGui::PushStyleColor (ImGuiCol_Button,        sms_to_imgui_colour (palette [tile [i]], 0));
+        ImGui::PushStyleColor (ImGuiCol_ButtonHovered, sms_to_imgui_colour (palette [tile [i]], 1));
+        ImGui::PushStyleColor (ImGuiCol_ButtonActive,  sms_to_imgui_colour (palette [tile [i]], 2));
+
+        if (ImGui::Button (tile_strings [i], ImVec2 (pixel_size, pixel_size)))
+        {
+            tile [i] = active_palette_index;
+        }
+
+        ImGui::PopStyleColor (3);
+
+        if (i % 8 != 7)
+        {
+            ImGui::SameLine ();
+        }
+    }
+
+    ImGui::PopStyleVar (2);
+
+    ImGui::End ();
+}
+
+
+/*
  * Palette bar (bottom)
  */
 void palette_bar (void)
@@ -88,9 +149,10 @@ void palette_bar (void)
     /* Calculate palette-bar size based on button size */
     uint32_t width = (16 * button_width) + (17 * BORDER_SIZE);
     uint32_t height = button_height + (2 * BORDER_SIZE);
+    palette_bar_height = height;
 
     ImGui::SetNextWindowPos (ImVec2 ((host_width - width) / 2, (host_height - height) - 16));
-    ImGui::SetNextWindowSize (ImVec2(width, height));
+    ImGui::SetNextWindowSize (ImVec2 (width, height));
 
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                                     ImGuiWindowFlags_NoMove     | ImGuiWindowFlags_NoScrollbar;
@@ -160,6 +222,7 @@ int main_gui_loop (void)
         ImGui::NewFrame ();
 
         menu_bar ();
+        editing_area ();
         palette_bar ();
 
         /* Draw to HW */
