@@ -19,7 +19,9 @@ int host_width;
 int host_height;
 
 uint8_t active_palette_index = 0;
-uint8_t palette [16] = { 0x08, 0x04, 0x00, 0x3f };
+uint8_t palette [16] = { 0x30, 0x3f, 0x37, 0x3b, 0x0f, 0x0b, 0x00, 0x2f,
+                         0x06, 0x0b, 0x01, 0x3e, 0x38, 0x0c, 0x08, 0x3c
+};
 
 const char *palette_strings [16] = { "0", "1", "2", "3",
                                      "4", "5", "6", "7",
