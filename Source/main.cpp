@@ -91,6 +91,54 @@ void export_palette (void)
     }
 }
 
+/*
+ * Export palette to stdout.
+ */
+void export_tile (bool use_uint32)
+{
+    uint8_t plane [4] = { 0 };
+
+    printf ("const uint%d_t patterns [] = {\n    ", use_uint32 ? 32 : 8);
+
+    for (uint32_t row = 0; row < 8; row++)
+    {
+        memset (plane, 0,  sizeof (plane));
+
+        for (uint32_t col = 0; col < 8; col++)
+        {
+            for (uint32_t bit = 0; bit < 4; bit++)
+            {
+                if (tile [col + (row * 8)] & (1 << bit))
+                {
+                   plane [bit] |= 0x80 >> col;
+                }
+            }
+        }
+
+        if (use_uint32)
+        {
+            printf ("%08x,", * (uint32_t *) &plane [0]);
+        }
+        else
+        {
+            printf ("%02x, %02x, %02x, %02x,",
+                    plane [0], plane [1], plane [2], plane [3]);
+        }
+
+        if (row == 7)
+        {
+            printf ("\n};\n");
+        }
+        else if (row == 3)
+        {
+            printf ("\n    ");
+        }
+        else
+        {
+            printf (" ");
+        }
+    }
+}
 
 /*
  * Main menu bar (top)
@@ -104,6 +152,16 @@ void menu_bar (void)
             if (ImGui::MenuItem ("Export Palette"))
             {
                 export_palette ();
+            }
+
+            if (ImGui::MenuItem ("Export Tile (uint8_t)"))
+            {
+                export_tile (false);
+            }
+
+            if (ImGui::MenuItem ("Export Tile (uint32_t)"))
+            {
+                export_tile (true);
             }
 
             ImGui::Separator ();
