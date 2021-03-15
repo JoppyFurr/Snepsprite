@@ -98,7 +98,10 @@ void export_tile (bool use_uint32)
 
     for (uint32_t tile_num = 0; tile_num < (tile_count * tile_count); tile_num++)
     {
-        printf ("    /* Tile %d */\n", tile_num);
+        printf ("    /* %s */\n", tile_num == 0 ? "Top left" :
+                                  tile_num == 1 ? "Top right" :
+                                  tile_num == 2 ? "Bottom left" :
+                                  tile_num == 3 ? "Bottom right" : "?");
         for (uint32_t row = 0; row < 8; row++)
         {
             memset (plane, 0,  sizeof (plane));
@@ -116,11 +119,11 @@ void export_tile (bool use_uint32)
 
             if (use_uint32)
             {
-                printf ("    %08x,", * (uint32_t *) &plane [0]);
+                printf ("    0x%08x,", * (uint32_t *) &plane [0]);
             }
             else
             {
-                printf ("    %02x, %02x, %02x, %02x,",
+                printf ("    0x%02x, 0x%02x, 0x%02x, 0x%02x,",
                         plane [0], plane [1], plane [2], plane [3]);
             }
 
