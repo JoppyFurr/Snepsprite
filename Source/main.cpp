@@ -18,32 +18,26 @@ SDL_GLContext gl_context = NULL;
 int host_width;
 int host_height;
 
+/* Gui calculations */
+uint32_t palette_bar_height = 0;
+
+/* 16-colour palette */
 uint8_t active_palette_index = 0;
 uint8_t palette [16] = { 0x30, 0x3f, 0x37, 0x3b, 0x0f, 0x0b, 0x00, 0x2f,
                          0x06, 0x0b, 0x01, 0x3e, 0x38, 0x0c, 0x08, 0x3c
 };
-
 const char *palette_strings [16] = { "0", "1", "2", "3",
                                      "4", "5", "6", "7",
                                      "8", "9", "A", "B",
                                      "C", "D", "E", "F"
 };
 
-/* Gui variables */
-uint32_t palette_bar_height = 0;
 
-/* 8 × 8 pixel tile */
-uint8_t tile [64] = { 0 };
-const char *tile_strings [64] = { "##00", "##01", "##02", "##03", "##04", "##05", "##06", "##07",
-                                  "##08", "##09", "##0a", "##0b", "##0c", "##0d", "##0e", "##0f",
-                                  "##10", "##11", "##12", "##13", "##14", "##15", "##16", "##17",
-                                  "##18", "##19", "##1a", "##1b", "##1c", "##1d", "##1e", "##1f",
-                                  "##20", "##21", "##22", "##23", "##24", "##25", "##26", "##27",
-                                  "##28", "##29", "##2a", "##2b", "##2c", "##2d", "##2e", "##2f",
-                                  "##30", "##31", "##32", "##33", "##34", "##35", "##36", "##37",
-                                  "##38", "##39", "##3a", "##3b", "##3c", "##3d", "##3e", "##3f"
-};
-
+/* 8 × 8 pixel tiles */
+#define MAX_TILES 4
+uint32_t tile_count = 1; /* Tile count along each axis */
+uint8_t tile [64 * MAX_TILES] = { 0 };
+char tile_strings [256][8] = { { '\0' } };
 
 /*
  * Convert a 6-bit SMS colour into an ImColor.
@@ -91,53 +85,57 @@ void export_palette (void)
     }
 }
 
+
 /*
  * Export palette to stdout.
  */
 void export_tile (bool use_uint32)
 {
     uint8_t plane [4] = { 0 };
+    uint32_t tile_base = 0;
 
-    printf ("const uint%d_t patterns [] = {\n    ", use_uint32 ? 32 : 8);
+    printf ("const uint%d_t patterns [] = {\n", use_uint32 ? 32 : 8);
 
-    for (uint32_t row = 0; row < 8; row++)
+    for (uint32_t tile_num = 0; tile_num < (tile_count * tile_count); tile_num++)
     {
-        memset (plane, 0,  sizeof (plane));
-
-        for (uint32_t col = 0; col < 8; col++)
+        printf ("    /* Tile %d */\n", tile_num);
+        for (uint32_t row = 0; row < 8; row++)
         {
-            for (uint32_t bit = 0; bit < 4; bit++)
+            memset (plane, 0,  sizeof (plane));
+
+            for (uint32_t col = 0; col < 8; col++)
             {
-                if (tile [col + (row * 8)] & (1 << bit))
+                for (uint32_t bit = 0; bit < 4; bit++)
                 {
-                   plane [bit] |= 0x80 >> col;
+                    if (tile [(tile_num * 64) + col + (row * 8)] & (1 << bit))
+                    {
+                       plane [bit] |= 0x80 >> col;
+                    }
                 }
             }
-        }
 
-        if (use_uint32)
-        {
-            printf ("%08x,", * (uint32_t *) &plane [0]);
-        }
-        else
-        {
-            printf ("%02x, %02x, %02x, %02x,",
-                    plane [0], plane [1], plane [2], plane [3]);
-        }
+            if (use_uint32)
+            {
+                printf ("    %08x,", * (uint32_t *) &plane [0]);
+            }
+            else
+            {
+                printf ("    %02x, %02x, %02x, %02x,",
+                        plane [0], plane [1], plane [2], plane [3]);
+            }
 
-        if (row == 7)
-        {
-            printf ("\n};\n");
-        }
-        else if (row == 3)
-        {
-            printf ("\n    ");
-        }
-        else
-        {
-            printf (" ");
+            if ((row % 4) == 3)
+            {
+                printf ("\n");
+            }
+            else
+            {
+                printf (" ");
+            }
         }
     }
+
+    printf ("};\n");
 }
 
 /*
@@ -174,6 +172,20 @@ void menu_bar (void)
             ImGui::EndMenu ();
         }
 
+        if (ImGui::BeginMenu ("Size"))
+        {
+            if (ImGui::MenuItem ("1 × 1"))
+            {
+                tile_count = 1;
+            }
+            if (ImGui::MenuItem ("2 × 2"))
+            {
+                tile_count = 2;
+            }
+
+            ImGui::EndMenu ();
+        }
+
         ImGui::EndMainMenuBar ();
     }
 }
@@ -185,8 +197,8 @@ void menu_bar (void)
 void editing_area (void)
 {
     uint32_t free_height = host_height - palette_bar_height;
-    uint32_t pixel_size = ((free_height * 0.8) - (2 * BORDER_SIZE)) / 8;
-    uint32_t window_size = (8 * pixel_size) + (2 * BORDER_SIZE);
+    uint32_t pixel_size = ((free_height * 0.8) - (2 * BORDER_SIZE)) / (8 * tile_count);
+    uint32_t window_size = (8 * pixel_size * tile_count) + (2 * BORDER_SIZE);
 
     ImGui::SetNextWindowPos (ImVec2 ((host_width - window_size) / 2, (free_height - window_size) / 2));
     ImGui::SetNextWindowSize (ImVec2 (window_size, window_size));
@@ -194,26 +206,44 @@ void editing_area (void)
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                                     ImGuiWindowFlags_NoMove     | ImGuiWindowFlags_NoScrollbar;
 
-
     ImGui::Begin ("editing_area", NULL, window_flags);
 
     ImGui::PushStyleVar (ImGuiStyleVar_FrameRounding, 0.0f);
     ImGui::PushStyleVar (ImGuiStyleVar_ItemSpacing, ImVec2 (0.0f, 0.0f));
 
-    for (uint32_t i = 0; i < 64; i++)
+    for (uint32_t i = 0; i < (64 *  tile_count * tile_count); i++)
     {
-        ImGui::PushStyleColor (ImGuiCol_Button,        sms_to_imgui_colour (palette [tile [i]], 0));
-        ImGui::PushStyleColor (ImGuiCol_ButtonHovered, sms_to_imgui_colour (palette [tile [i]], 1));
-        ImGui::PushStyleColor (ImGuiCol_ButtonActive,  sms_to_imgui_colour (palette [tile [i]], 2));
+        uint32_t tile_index = i;
 
-        if (ImGui::Button (tile_strings [i], ImVec2 (pixel_size, pixel_size)))
+        if (tile_count == 2)
         {
-            tile [i] = active_palette_index;
+            uint32_t pixel_x = i % 16;
+            uint32_t pixel_y = i / 16;
+
+            /* 1 × 1 tile base index */
+            tile_index = 64 * ((pixel_x / 8) + (pixel_y / 8) * 2);
+
+            /* Offset within tile */
+            tile_index += (pixel_x % 8) + ((pixel_y % 8) * 8);
+
+        }
+
+        ImGui::PushStyleColor (ImGuiCol_Button,        sms_to_imgui_colour (palette [tile [tile_index]], 0));
+        ImGui::PushStyleColor (ImGuiCol_ButtonHovered, sms_to_imgui_colour (palette [tile [tile_index]], 1));
+        ImGui::PushStyleColor (ImGuiCol_ButtonActive,  sms_to_imgui_colour (palette [tile [tile_index]], 2));
+
+        if (ImGui::Button (tile_strings [tile_index], ImVec2 (pixel_size, pixel_size)))
+        {
+            tile [tile_index] = active_palette_index;
         }
 
         ImGui::PopStyleColor (3);
 
-        if (i % 8 != 7)
+        if (tile_count == 1 && (i % 8 != 7))
+        {
+            ImGui::SameLine ();
+        }
+        else if (tile_count == 2 && (i % 16 != 15))
         {
             ImGui::SameLine ();
         }
@@ -382,6 +412,12 @@ int main (int argc, char **argv)
 
     /* Style */
     ImGui::GetStyle ().FrameRounding = 2.0f;
+
+    /* Init hidden button names */
+    for (uint32_t i = 0; i < 256; i++)
+    {
+        sprintf (tile_strings [i], "##%02x", i);
+    }
 
     main_gui_loop ();
 
